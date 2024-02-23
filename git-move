@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+
+import argparse
+
+parser = argparse.ArgumentParser(description="""
+git-move: moves to another branch by first stashing the
+uncommited changes and then checking out the specified branch.
+
+git-move internally keeps track of the uncommited changes on
+each branch and their associated stashes, making switching branches
+frequently a painless experience, in contrast to the usual git behavior.
+""")
+
+parser.add_argument("-i", "--init", help="""
+Initialize git-move in the current git repository""")
+
+import os
+import subprocess
+from pathlib import Path
+
+def get_git_root_directory():
+    try:
+        # Run the git command and capture its output
+        result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+        # Extract the output from the result
+        git_root = result.stdout.strip()
+        return git_root
+    except subprocess.CalledProcessError:
+        # Handle the case where the current directory is not part of a git repository
+        return None
+
+git_root_dir = get_git_root_directory()
