@@ -112,8 +112,11 @@ def main():
             exit(1)
 
     if args.reset:
+        print("Resetting git-move cache...")
         with open(git_move_file_path, 'w') as git_move_file:
             git_move_file.truncate(0)
+        print("Done!")
+        exit(0)
 
     # Determine current and destination branch
     all_local_branches = run_bash_cmd("git branch --format='%(refname:short)'")
