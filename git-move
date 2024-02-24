@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 from argparse import RawTextHelpFormatter
@@ -46,11 +46,11 @@ def run_bash_cmd(bash_cmd: str) -> Optional[str]:
         raise RuntimeError("Some went wrong.")
 
 def stash_changes(current_branch: str) -> Optional[str]:
-    output = run_bash_cmd(f"git stash push -u -m \"git-move changes on branch {current_branch}\"")
+    output = run_bash_cmd(["git", "stash", "push", "-u", "-m", f"git-move changes on branch {current_branch}"])
     if output is None:
         print("Stashing changes failed.")
         return None
-    stash_hash = run_bash_cmd("git stash list --format=\"%h\"").splitlines()[0]
+    stash_hash = run_bash_cmd(["git", "stash", "list", "--format=%h", ]).splitlines()[0]
     return stash_hash
 
 def get_move_hash(git_move_file_path: Path, branch: str) -> Optional[str]:
@@ -62,7 +62,7 @@ def get_move_hash(git_move_file_path: Path, branch: str) -> Optional[str]:
     return None
 
 def get_hash_ref(stash_hash: str) -> Optional[str]:
-    stash_entries = run_bash_cmd(f"git stash list --format=\"%h: %gd\"").splitlines()
+    stash_entries = run_bash_cmd(["git", "stash", "list", "--format=%h: %gd"]).splitlines()
     for stash_entry in stash_entries:
         parts = stash_entry.strip().split(': ')
         if parts[0] == stash_hash:
@@ -85,7 +85,7 @@ def delete_move_entry(git_move_file_path: Path, branch: str):
 ## Main function
 ##
 def main():
-    git_root_dir = run_bash_cmd("git rev-parse --show-toplevel")
+    git_root_dir = run_bash_cmd(["git", "rev-parse", "--show-toplevel"])
     if git_root_dir is None:
         print("The current directory is not a git directory. Aborting...")
         exit(1)
@@ -119,9 +119,9 @@ def main():
         exit(0)
 
     # Determine current and destination branch
-    all_local_branches = run_bash_cmd("git branch --format='%(refname:short)'")
+    all_local_branches = run_bash_cmd(["git", "branch", "--format=\"%(refname:short)\""])
     destination_branch = args.destination
-    current_branch = run_bash_cmd("git branch --show-current")
+    current_branch = run_bash_cmd(["git", "branch", "--show-current"])
 
     if current_branch == destination_branch:
         print(f"Already on branch '{current_branch}'. Nothing to do.")
@@ -133,7 +133,7 @@ def main():
     elif destination_branch not in all_local_branches:
         if args.create_branch:
             print(f"Creating new branch {destination_branch}")
-            run_bash_cmd(f"git branch {destination_branch}")
+            run_bash_cmd(["git", "branch", destination_branch])
         else:
             print(f"Branch '{destination_branch}' is not available locally.")
             print(f"Run 'git move -b {destination_branch}' to create it before moving.")
@@ -143,7 +143,7 @@ def main():
         print("Something went wrong. Exiting...")
         exit(1)
 
-    uncommited_changes = run_bash_cmd("git status --porcelain")
+    uncommited_changes = run_bash_cmd(["git", "status", "--porcelain"])
 
     if re.sub(r'\s+', '', uncommited_changes) == "":  # Removes all whitespace
         # Checking for trivial case: no changes
@@ -157,15 +157,16 @@ def main():
         add_move_entry(git_move_file_path, current_branch, stash_hash)
 
     print(f"Moving to branch '{destination_branch}'.")
-    run_bash_cmd(f"git checkout {destination_branch}")
+    run_bash_cmd(["git", "checkout", destination_branch])
     destination_hash = get_move_hash(git_move_file_path, destination_branch)
     if destination_hash is not None:
         print(f"Unstashing changes on branch '{destination_branch}'")
         destination_ref = get_hash_ref(destination_hash)
         if destination_ref is None:
+            print("destination_ref missing.")
             print("Something went wrong. Exiting...")
             exit(1)
-        result = run_bash_cmd(f"git stash pop {destination_ref}")
+        result = run_bash_cmd(["git", "stash", "pop", destination_ref])
         if result is None:
             print("Something went wrong. Exiting...")
             exit(1)
