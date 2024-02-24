@@ -5,9 +5,9 @@ from argparse import RawTextHelpFormatter
 
 parser = argparse.ArgumentParser(description="""
 git-move moves to another branch by first stashing the
-uncommited changes and then checking out the specified branch.
+uncommitted changes and then checking out the specified branch.
 
-git-move internally keeps track of the uncommited changes on
+git-move internally keeps track of the uncommitted changes on
 each branch and their associated stashes, making switching branches
 frequently a painless experience, in contrast to the usual git behavior.
 """, formatter_class=RawTextHelpFormatter)
@@ -29,12 +29,21 @@ import re
 import subprocess
 import fileinput
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 GIT_MOVE_FILE=".git/gitmove"
 
 
-def run_bash_cmd(bash_cmd: str) -> Optional[str]:
+def run_bash_cmd(bash_cmd: List[str]) -> Optional[str]:
+    """
+    Run a bash command and return the output.
+
+    Args:
+        bash_cmd (List[str]): The bash command to run.
+
+    Returns:
+        Optional[str]: The output of the command, or None if an error occurred.
+    """
     try:
         result = subprocess.run(
             bash_cmd, stdout=subprocess.PIPE,
@@ -43,9 +52,18 @@ def run_bash_cmd(bash_cmd: str) -> Optional[str]:
         output = result.stdout.strip()
         return output
     except subprocess.CalledProcessError:
-        raise RuntimeError("Some went wrong.")
+        raise RuntimeError("Something went wrong.")
 
 def stash_changes(current_branch: str) -> Optional[str]:
+    """
+    Stash the uncommitted changes on the current branch.
+
+    Args:
+        current_branch (str): The current branch.
+
+    Returns:
+        Optional[str]: The stash hash, or None if stashing failed.
+    """
     output = run_bash_cmd(["git", "stash", "push", "-u", "-m", f"git-move changes on branch {current_branch}"])
     if output is None:
         print("Stashing changes failed.")
@@ -54,6 +72,16 @@ def stash_changes(current_branch: str) -> Optional[str]:
     return stash_hash
 
 def get_move_hash(git_move_file_path: Path, branch: str) -> Optional[str]:
+    """
+    Get the stash hash associated with a branch from the git-move file.
+
+    Args:
+        git_move_file_path (Path): The path to the git-move file.
+        branch (str): The branch.
+
+    Returns:
+        Optional[str]: The stash hash, or None if not found.
+    """
     with open(git_move_file_path, "r") as git_move_file:
         for line in git_move_file:
             parts = line.strip().split(': ')
@@ -62,6 +90,15 @@ def get_move_hash(git_move_file_path: Path, branch: str) -> Optional[str]:
     return None
 
 def get_hash_ref(stash_hash: str) -> Optional[str]:
+    """
+    Get the hash reference associated with a stash hash.
+
+    Args:
+        stash_hash (str): The stash hash.
+
+    Returns:
+        Optional[str]: The hash reference, or None if not found.
+    """
     stash_entries = run_bash_cmd(["git", "stash", "list", "--format=%h: %gd"]).splitlines()
     for stash_entry in stash_entries:
         parts = stash_entry.strip().split(': ')
@@ -70,10 +107,25 @@ def get_hash_ref(stash_hash: str) -> Optional[str]:
     return None
 
 def add_move_entry(git_move_file_path: Path, branch: str, stash_hash: str):
+    """
+    Add an entry to the git-move file.
+
+    Args:
+        git_move_file_path (Path): The path to the git-move file.
+        branch (str): The branch.
+        stash_hash (str): The stash hash.
+    """
     with open(git_move_file_path, "a") as git_move_file:
         git_move_file.write(f"{branch}: {stash_hash}\n")
 
 def delete_move_entry(git_move_file_path: Path, branch: str):
+    """
+    Delete an entry from the git-move file.
+
+    Args:
+        git_move_file_path (Path): The path to the git-move file.
+        branch (str): The branch.
+    """
     for line in fileinput.input(git_move_file_path, inplace=True):
         parts = line.strip().split(': ')
         if parts[0] == branch:
@@ -85,6 +137,9 @@ def delete_move_entry(git_move_file_path: Path, branch: str):
 ## Main function
 ##
 def main():
+    """
+    Main function for git-move.
+    """
     git_root_dir = run_bash_cmd(["git", "rev-parse", "--show-toplevel"])
     if git_root_dir is None:
         print("The current directory is not a git directory. Aborting...")
@@ -143,11 +198,11 @@ def main():
         print("Something went wrong. Exiting...")
         exit(1)
 
-    uncommited_changes = run_bash_cmd(["git", "status", "--porcelain"])
+    uncommitted_changes = run_bash_cmd(["git", "status", "--porcelain"])
 
-    if re.sub(r'\s+', '', uncommited_changes) == "":  # Removes all whitespace
+    if re.sub(r'\s+', '', uncommitted_changes) == "":  # Removes all whitespace
         # Checking for trivial case: no changes
-        print(f"No uncommited changes. Moving to branch '{destination_branch}'.")
+        print(f"No uncommitted changes. Moving to branch '{destination_branch}'.")
     else:
         print(f"Stashing changes on '{current_branch}'.")
         stash_hash = stash_changes(current_branch)
